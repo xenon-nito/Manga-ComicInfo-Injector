@@ -53,6 +53,7 @@ This makes your manga library richer, better organized, and compatible with comi
    ```bash
    python Manga_Comicinfo_Injector.py
    ```
+   or use the run.bat file.
 
 4. **Using the App**:
    - Add one or more manga folders via **Add Folder** or **Add Parent Folder**.
