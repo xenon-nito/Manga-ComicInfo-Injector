@@ -36,6 +36,7 @@ query ($search: String, $page: Int, $perPage: Int) {
       coverImage { large extraLarge }
       staff {
         edges {
+          role
           node {
             name { full }
             primaryOccupations
@@ -46,6 +47,39 @@ query ($search: String, $page: Int, $perPage: Int) {
   }
 }
 """
+_POSITIVE_OCC_KEYWORDS = [
+    "story", "writer", "author", "manga", "art", "illustrator",
+    "illustration", "original creator", "creator", "character design"
+]
+_NEGATIVE_OCC_KEYWORDS = [
+    "translate", "translator", "translation", "editor",
+    "clean", "redraw", "redrawer", "letterer", "proof"
+]
+
+def _edge_is_creator(edge):
+    """
+    Return True if the staff edge probably refers to a story/author/artist-type role.
+    Return False if it's clearly a translator/editor/etc.
+    """
+    node = edge.get("node", {}) or {}
+    name = node.get("name", {}).get("full")
+    if not name:
+        return False
+
+    occupations = node.get("primaryOccupations") or []
+    role = edge.get("role") or ""
+    combined = " ".join(occupations + [role]).lower()
+
+    # If any negative token present, reject immediately
+    if any(neg in combined for neg in _NEGATIVE_OCC_KEYWORDS):
+        return False
+
+    # If any positive token present, accept
+    if any(pos in combined for pos in _POSITIVE_OCC_KEYWORDS):
+        return True
+
+    # Otherwise unknown (return False here; caller may fall back to a looser rule)
+    return False
 
 # Utility functions
 def load_cache():
@@ -90,8 +124,20 @@ def anilist_search(term, per_page=6):
             staff = []
             for e in m.get("staff", {}).get("edges", []):
                 name = e.get("node", {}).get("name", {}).get("full")
-                if name:
+                if name and _edge_is_creator(e):
                     staff.append(name)
+
+            # If strict matching returned nothing, fallback to "everyone except excluded roles"
+            if not staff:
+                for e in m.get("staff", {}).get("edges", []):
+                    node = e.get("node", {}) or {}
+                    name = node.get("name", {}).get("full")
+                    occupations = node.get("primaryOccupations") or []
+                    role = e.get("role") or ""
+                    combined = " ".join(occupations + [role]).lower()
+                    if name and not any(neg in combined for neg in _NEGATIVE_OCC_KEYWORDS):
+                        staff.append(name)
+
             results.append({
                 "id": m.get("id"),
                 "title_romaji": m.get("title", {}).get("romaji"),
@@ -141,8 +187,8 @@ def build_comicinfo(metadata, prefer="romaji"):
     if metadata.get("year"):
         ET.SubElement(root, "Year").text = str(metadata.get("year"))
     writers = metadata.get("staff", []) or []
-    if writers:
-        ET.SubElement(root, "Writer").text = ", ".join(writers)
+    # Always create Writer tag, even if empty
+    ET.SubElement(root, "Writer").text = ", ".join(writers) if writers else ""
     genres = metadata.get("genres", []) or []
     if genres:
         ET.SubElement(root, "Genre").text = ", ".join(genres)
@@ -450,9 +496,25 @@ class AniApp:
                 media = data.get("data", {}).get("Media")
                 if media:
                     candidates.clear()
-                    staff = [e.get("node", {}).get("name", {}).get("full")
-                             for e in media.get("staff", {}).get("edges", [])
-                             if e.get("node", {}).get("name", {}).get("full")]
+
+                    edges = media.get("staff", {}).get("edges", [])
+                    staff = []
+                    for e in edges:
+                        name = e.get("node", {}).get("name", {}).get("full")
+                        if name and _edge_is_creator(e):
+                            staff.append(name)
+
+                    # Fallback: if no staff matched, include all except translators/editors/etc.
+                    if not staff:
+                        for e in edges:
+                            node = e.get("node", {}) or {}
+                            name = node.get("name", {}).get("full")
+                            occupations = node.get("primaryOccupations") or []
+                            role = e.get("role") or ""
+                            combined = " ".join(occupations + [role]).lower()
+                            if name and not any(neg in combined for neg in _NEGATIVE_OCC_KEYWORDS):
+                                staff.append(name)
+
                     candidates.append({
                         "id": media.get("id"),
                         "title_romaji": media.get("title", {}).get("romaji"),
