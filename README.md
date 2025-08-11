@@ -1,4 +1,11 @@
-This makes your manga library richer, better organized, and compatible with comic library managers like **YACReader**, **ComicRack**, and **Kavita**.
+# 📚 Manga ComicInfo Injector
+
+**Manga ComicInfo Injector** is a Python desktop tool for automatically fetching metadata from [AniList](https://anilist.co/) and injecting it into your `.cbz` and `.cbr` manga/comic archives in the **ComicInfo.xml** format (with optional cover image).  
+This makes your manga library richer, better organized, and compatible with comic library managers like **Kavita**, **ComicRack**, and **Komga**.
+
+<p align="center">
+  <img src="https://i.imgur.com/ChWNn1v.jpeg" alt="App Preview" width="600">
+</p>
 
 > 🛠 This project was coded collaboratively with the help of **ChatGPT**.
 
@@ -26,7 +33,6 @@ This makes your manga library richer, better organized, and compatible with comi
   ```
 - For `.cbr` support, ensure one of these is installed and in your system `PATH`:
   - **7-Zip** (`7z` command)
-  - **unrar** or **rar** CLI tool
 
 ---
 
